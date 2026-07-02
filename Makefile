@@ -1,83 +1,30 @@
-IFACE    ?= lo
-DURATION ?= 10
+# Makefile - TCP Congestion Observatory
+CLANG   ?= clang
+BPFTOOL ?= bpftool
+ARCH    := $(shell uname -m | sed 's/x86_64/x86/;s/aarch64/arm64/')
 
-.PHONY: install exp1 exp2 exp3 exp4_cubic exp4_bbr graphs clean help
+CFLAGS  := -g -O2 -Wall -I.
+BPF_CFLAGS := -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH) -I.
 
-install:
-	sudo apt install -y python3-bpfcc bpfcc-tools iperf3 iproute2 python3-matplotlib python3-pandas
+.PHONY: all clean
 
-exp1:
-	mkdir -p results
-	sudo sysctl -w net.ipv4.tcp_congestion_control=cubic
-	iperf3 -s -1 &
-	sleep 1
-	sudo python3 tcp_co.py &
-	iperf3 -c 127.0.0.1 -t $(DURATION)
-	sudo pkill -f tcp_co.py
-	cp tcp_metrics.csv results/exp1_cubic.csv
-	@echo ">>> Salvo em results/exp1_cubic.csv"
+all: tcpco
 
-exp2:
-	mkdir -p results
-	sudo sysctl -w net.ipv4.tcp_congestion_control=cubic
-	sudo tc qdisc add dev $(IFACE) root netem loss 1%
-	iperf3 -s -1 &
-	sleep 1
-	sudo python3 tcp_co.py &
-	iperf3 -c 127.0.0.1 -t $(DURATION)
-	sudo pkill -f tcp_co.py
-	sudo tc qdisc del dev $(IFACE) root
-	cp tcp_metrics.csv results/exp2_loss.csv
-	@echo ">>> Salvo em results/exp2_loss.csv"
+# 1) Gera o vmlinux.h a partir do BTF do kernel em execução (precisa CONFIG_DEBUG_INFO_BTF).
+vmlinux.h:
+	$(BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
 
-exp3:
-	mkdir -p results
-	sudo sysctl -w net.ipv4.tcp_congestion_control=cubic
-	sudo tc qdisc add dev $(IFACE) root netem delay 100ms
-	iperf3 -s -1 &
-	sleep 1
-	sudo python3 tcp_co.py &
-	iperf3 -c 127.0.0.1 -t $(DURATION)
-	sudo pkill -f tcp_co.py
-	sudo tc qdisc del dev $(IFACE) root
-	cp tcp_metrics.csv results/exp3_100ms.csv
-	@echo ">>> Salvo em results/exp3_100ms.csv"
+# 2) Compila o objeto BPF.
+tcpco.bpf.o: tcpco.bpf.c vmlinux.h
+	$(CLANG) $(BPF_CFLAGS) -c $< -o $@
 
-exp4_cubic:
-	mkdir -p results
-	sudo sysctl -w net.ipv4.tcp_congestion_control=cubic
-	iperf3 -s -1 &
-	sleep 1
-	sudo python3 tcp_co.py &
-	iperf3 -c 127.0.0.1 -t $(DURATION)
-	sudo pkill -f tcp_co.py
-	cp tcp_metrics.csv results/exp4_cubic.csv
-	@echo ">>> Salvo em results/exp4_cubic.csv"
+# 3) Gera o skeleton .h a partir do objeto BPF.
+tcpco.skel.h: tcpco.bpf.o
+	$(BPFTOOL) gen skeleton $< > $@
 
-exp4_bbr:
-	mkdir -p results
-	sudo sysctl -w net.ipv4.tcp_congestion_control=bbr
-	iperf3 -s -1 &
-	sleep 1
-	sudo python3 tcp_co.py &
-	iperf3 -c 127.0.0.1 -t $(DURATION)
-	sudo pkill -f tcp_co.py
-	sudo sysctl -w net.ipv4.tcp_congestion_control=cubic
-	cp tcp_metrics.csv results/exp4_bbr.csv
-	@echo ">>> Salvo em results/exp4_bbr.csv"
-
-graphs:
-	python3 graphs.py
+# 4) Compila o loader user-space linkando com libbpf.
+tcpco: tcpco.c tcpco.skel.h
+	$(CLANG) $(CFLAGS) $< -lbpf -lelf -lz -o $@
 
 clean:
-	rm -f tcp_metrics.csv
-	rm -rf results
-
-help:
-	@echo "make exp1         slow start sem netem"
-	@echo "make exp2         1% perda de pacotes"
-	@echo "make exp3         RTT 100ms"
-	@echo "make exp4_cubic   algoritmo cubic"
-	@echo "make exp4_bbr     algoritmo bbr"
-	@echo "make graphs       gera graficos"
-	@echo "make clean        limpa arquivos"
+	rm -f tcpco tcpco.bpf.o tcpco.skel.h vmlinux.h tcpco.csv
