@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 // tcpco.c - loader user-space: carrega o BPF, consome o ring buffer,
-// imprime na tela e grava CSV com detecção de eventos de congestionamento (bônus).
+// imprime as métricas na tela e grava o CSV.
 #include <argp.h>
 #include <arpa/inet.h>
 #include <signal.h>
@@ -52,35 +52,6 @@ static void on_sigint(int sig) { exiting = 1; }
 static FILE *csv;
 static __u64 t0_ns = 0;
 
-// memória simples do último cwnd por fluxo p/ detecção de queda >50% (bônus).
-struct last { __u64 k; __u32 cwnd; __u32 retr; };
-static struct last hist[4096];
-static int hist_n = 0;
-
-static void detect_event(struct event *e) {
-    __u64 k = ((__u64)e->key.src_port << 48) ^ ((__u64)e->key.dst_port << 32)
-              ^ e->key.src_ip ^ ((__u64)e->key.dst_ip << 16);
-    for (int i = 0; i < hist_n; i++) {
-        if (hist[i].k == k) {
-            if (hist[i].cwnd > 0 &&
-                e->m.snd_cwnd * 2 < hist[i].cwnd &&           // cwnd caiu > 50%
-                e->m.retransmissions > hist[i].retr) {        // e houve retransmissão
-                fprintf(stderr, "[ALERTA] congestionamento: cwnd %u->%u, retrans %u->%u\n",
-                        hist[i].cwnd, e->m.snd_cwnd, hist[i].retr, e->m.retransmissions);
-            }
-            hist[i].cwnd = e->m.snd_cwnd;
-            hist[i].retr = e->m.retransmissions;
-            return;
-        }
-    }
-    if (hist_n < 4096) {
-        hist[hist_n].k = k;
-        hist[hist_n].cwnd = e->m.snd_cwnd;
-        hist[hist_n].retr = e->m.retransmissions;
-        hist_n++;
-    }
-}
-
 static int handle_event(void *ctx, void *data, size_t len) {
     struct event *e = data;
     if (t0_ns == 0) t0_ns = e->m.ts_ns;
@@ -104,7 +75,6 @@ static int handle_event(void *ctx, void *data, size_t len) {
                 ca_state_str(e->m.ca_state));
         fflush(csv);
     }
-    detect_event(e);
     return 0;
 }
 

@@ -67,16 +67,21 @@ iperf3 -c 127.0.0.1 -t 30
 
 ## 4. Gerar os graficos
 
+O `plot.py` le todos os CSVs de `resultados/`, filtra a
+conexao do iperf3 (porta 5201) e gera um PNG por experimento em `graficos/`.
+
 ```bash
-python3 plot.py resultados/exp1_cwnd_cubic.csv
+python3 plot.py
 ```
-Isso cria `graficos.png`. Para comparar dois algoritmos no mesmo grafico:
+
+Para trocar a porta filtrada (padrao 5201):
 ```bash
-python3 plot.py resultados/exp4_cmp_cubic.csv resultados/exp4_cmp_bbr.csv
+python3 plot.py --port N 
 ```
+
 Para reduzir o numero de pontos (grafico mais limpo):
 ```bash
-python3 plot.py --max 100 resultados/exp2_perda_cubic.csv
+python3 plot.py --max N 
 ```
 
 ## Emular condicoes de rede (manual)
@@ -90,7 +95,7 @@ sudo tc qdisc del dev lo root                       # limpar
 
 Trocar o algoritmo de congestionamento:
 ```bash
-sudo sysctl -w net.ipv4.tcp_congestion_control=cubic   # ou reno, bbr
+sudo sysctl -w net.ipv4.tcp_congestion_control=cubic   # ou reno
 ```
 
 ## Observacoes
@@ -100,3 +105,5 @@ sudo sysctl -w net.ipv4.tcp_congestion_control=cubic   # ou reno, bbr
   interface fisica (veja com `ip a`).
 - No loopback o cwnd cresce muito rapido; os experimentos com `tc netem`
   (perda/RTT) mostram melhor a dinamica de congestionamento.
+- O coletor captura todas as conexoes TCP da maquina, por isso o filtro de porta no
+  `plot.py` (5201) para isolar o trafego do iperf3.
