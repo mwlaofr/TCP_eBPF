@@ -103,7 +103,10 @@ sudo sysctl -w net.ipv4.tcp_congestion_control=cubic   # ou reno
 - Todos os comandos de coleta precisam de `sudo` (carregam eBPF no kernel).
 - Use `lo` para testes em `127.0.0.1`; para duas maquinas reais, use a
   interface fisica (veja com `ip a`).
-- No loopback o cwnd cresce muito rapido; os experimentos com `tc netem`
+- No loopback o cwnd cresce muito rapido, os experimentos com `tc netem`
   (perda/RTT) mostram melhor a dinamica de congestionamento.
 - O coletor captura todas as conexoes TCP da maquina, por isso o filtro de porta no
   `plot.py` (5201) para isolar o trafego do iperf3.
+- O iperf3 pode abrir mais de um fluxo (mesma porta 5201, src_port diferente).
+Se o grafico mostrar uma queda brusca de cwnd, confira o src_port no CSV —
+pode ser outro fluxo, nao uma perda de congestionamento.
