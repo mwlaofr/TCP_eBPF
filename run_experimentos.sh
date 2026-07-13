@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
-# run_experimentos.sh - orquestra os 4 experimentos do PDF (versao libbpf).
-#
-# Uso:  sudo ./run_experimentos.sh [iface] [ip_servidor]
-#   ex.: sudo ./run_experimentos.sh lo 127.0.0.1
-#
-# Padrao IFACE=lo porque os testes usam 127.0.0.1 (loopback): o tc netem
-# precisa ser aplicado em lo para afetar esse trafego.
+# Orquestra os 4 experimentos do PDF (versao libbpf)
+# sudo ./run_experimentos.sh lo 127.0.0.1
+
 set -euo pipefail
 
 IFACE="${1:-lo}"

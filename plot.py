@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""plot.py - graficos da Parte 5 a partir dos CSVs do TCP-CO.
-Uso:
-  python3 plot.py            # tudo automatico (resultados/ -> graficos/)
-  python3 plot.py --port N   # troca a porta filtrada (padrao 5201)
-  python3 plot.py --max N    # usa apenas as primeiras N linhas (padrao: todas)
-
-Instale o matplotlib com: sudo apt install -y python3-matplotlib
+"""Graficos da Parte 5 a partir dos CSVs do TCP-CO
+  python3 plot.py
+  python3 plot.py --port N # troca a porta filtrada (padrao 5201)
+  python3 plot.py --max N # usa apenas as primeiras N linhas (padrao: todas)
 """
 import sys, csv, os, glob
 import matplotlib

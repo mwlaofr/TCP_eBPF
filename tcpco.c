@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-// tcpco.c - loader user-space: carrega o BPF, consome o ring buffer,
-// imprime as métricas na tela e grava o CSV.
+// tcpco.c - loader user-space: carrega o BPF, consome o ring buffer, imprime as métricas na tela e grava o CSV
 #include <argp.h>
 #include <arpa/inet.h>
 #include <signal.h>
